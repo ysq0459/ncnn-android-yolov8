@@ -11,7 +11,11 @@ buildscript {
 
 allprojects {
     repositories {
-        jcenter()
+        //阿里云镜像
+        maven { url 'https://maven.aliyun.com/nexus/content/groups/public/' }
+        //依赖库
+        maven { url 'https://jitpack.io' }
+        mavenCentral()
         google()
     }
 }

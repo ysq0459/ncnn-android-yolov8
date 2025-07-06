@@ -37,7 +37,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback
     public static final int REQUEST_CAMERA = 100;
 
     private Yolov8Ncnn yolov8ncnn = new Yolov8Ncnn();
-    private int facing = 0;
+    private int facing = 1;
 
     private Spinner spinnerModel;
     private Spinner spinnerCPUGPU;
@@ -64,7 +64,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback
         buttonSwitchCamera.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View arg0) {
-
+                // 0 是后置相机 1 是前置相机
                 int new_facing = 1 - facing;
 
                 yolov8ncnn.closeCamera();

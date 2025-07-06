@@ -1,0 +1,5 @@
+/.vscode
+ncnn-android-yolov8/.gradle/
+ncnn-android-yolov8/.idea/
+ncnn-android-yolov8/app/.cxx/
+ncnn-android-yolov8/app/build/

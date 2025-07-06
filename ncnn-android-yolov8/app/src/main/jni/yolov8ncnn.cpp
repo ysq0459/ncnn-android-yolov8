@@ -129,8 +129,15 @@ void MyNdkCamera::on_image_render(cv::Mat& rgb) const
         {
             std::vector<Object> objects;
             g_yolo->detect(rgb, objects);
-
             g_yolo->draw(rgb, objects);
+            std::vector<cv::Mat> cut_imgs;
+            g_yolo->DetectResultCut(rgb, objects, cut_imgs);
+            for (size_t i = 0; i < cut_imgs.size(); ++i) {
+                std::vector<Object> seg_objs;
+                g_yolo->segment(cut_imgs[i], seg_objs);
+                // 绘制分割结果到源图像上
+                g_yolo->draw_segment(cut_imgs[i], rgb, seg_objs, objects[i]);
+            }
         }
         else
         {
@@ -183,30 +190,31 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_Yolov8Ncnn_loadModel(JNIE
 
     const char* modeltypes[] =
     {
-        "n",
-        "s",
+        "testtube_ncnn"
     };
 
     const int target_sizes[] =
     {
-        320,
-        320,
+        640
+    };
+
+    const int num_classes[] = {
+        1
     };
 
     const float mean_vals[][3] =
     {
-        {103.53f, 116.28f, 123.675f},
-        {103.53f, 116.28f, 123.675f},
+        {103.53f, 116.28f, 123.675f}
     };
 
     const float norm_vals[][3] =
     {
-        { 1 / 255.f, 1 / 255.f, 1 / 255.f },
-        { 1 / 255.f, 1 / 255.f, 1 / 255.f },
+        { 1 / 255.f, 1 / 255.f, 1 / 255.f }
     };
 
     const char* modeltype = modeltypes[(int)modelid];
     int target_size = target_sizes[(int)modelid];
+    int num_class = num_classes[(int)modelid];
     bool use_gpu = (int)cpugpu == 1;
 
     // reload
@@ -223,7 +231,7 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_Yolov8Ncnn_loadModel(JNIE
         {
             if (!g_yolo)
                 g_yolo = new Yolo;
-            g_yolo->load(mgr, modeltype, target_size, mean_vals[(int)modelid], norm_vals[(int)modelid], use_gpu);
+            g_yolo->load(mgr, modeltype, target_size, num_class, mean_vals[(int)modelid], norm_vals[(int)modelid], use_gpu);
         }
     }
 

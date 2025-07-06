@@ -24,6 +24,8 @@ struct Object
     cv::Rect_<float> rect;
     int label;
     float prob;
+    cv::Mat mask;
+    std::vector<float> mask_feat;
 };
 struct GridAndStride
 {
@@ -36,19 +38,34 @@ class Yolo
 public:
     Yolo();
 
-    int load(const char* modeltype, int target_size, const float* mean_vals, const float* norm_vals, bool use_gpu = false);
+    int load(const char* modeltype, int target_size, int _num_class, const float* mean_vals, const float* norm_vals, bool use_gpu = false);
 
-    int load(AAssetManager* mgr, const char* modeltype, int target_size, const float* mean_vals, const float* norm_vals, bool use_gpu = false);
+    int load(AAssetManager* mgr, const char* modeltype, int target_size, int _num_class, const float* mean_vals, const float* norm_vals, bool use_gpu = false);
 
     int detect(const cv::Mat& rgb, std::vector<Object>& objects, float prob_threshold = 0.4f, float nms_threshold = 0.5f);
 
     int draw(cv::Mat& rgb, const std::vector<Object>& objects);
 
+    int segment(const cv::Mat& rgb, std::vector<Object>& objects, float prob_threshold = 0.4f, float nms_threshold = 0.5f);
+
+    int draw_segment(const cv::Mat& cut_img, cv::Mat& rgb, const std::vector<Object>& objects, const Object& img_obj);
+
+    int DetectResultCut(const cv::Mat& rgb, const std::vector<Object>& objects, std::vector<cv::Mat>& cut_imgs);
+
+    int SegmentSolution(cv::Mat& rgb, std::vector<Object>& objects, float prob_threshold = 0.4f, float nms_threshold = 0.5f);
+
+    std::string get_model_name() {
+        return model_name;
+    }
+
 private:
     ncnn::Net yolo;
+    ncnn::Net yolo_solution;
     int target_size;
+    int num_class;
     float mean_vals[3];
     float norm_vals[3];
+    std::string model_name;
     ncnn::UnlockedPoolAllocator blob_pool_allocator;
     ncnn::PoolAllocator workspace_pool_allocator;
 };
