@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="16dp">
+
+    <!-- 替换为你的图片 -->
+    <ImageView
+        android:id="@+id/iv_background"
+        android:layout_width="220dp"
+        android:layout_height="220dp"
+        android:scaleType="centerCrop"
+        android:src="@mipmap/usc_1" />
+
+    <TextView
+        android:id="@+id/fragment_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:padding="24dp"
+        android:textColor="#333333"
+        android:textSize="24sp"
+        android:textStyle="bold"/>
+
+    <Button
+        android:id="@+id/buttonHistoricalData"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Historical Data" />
+</LinearLayout>

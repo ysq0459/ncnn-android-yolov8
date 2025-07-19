@@ -16,6 +16,7 @@ package com.tencent.yolov8ncnn;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.PixelFormat;
 import android.os.Bundle;
@@ -32,131 +33,97 @@ import android.widget.Spinner;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 
-public class MainActivity extends Activity implements SurfaceHolder.Callback
-{
-    public static final int REQUEST_CAMERA = 100;
+import android.app.Activity;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentManager;
+import android.support.v4.app.FragmentTransaction;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.LinearLayout;
+import android.support.v4.app.FragmentActivity;
 
-    private Yolov8Ncnn yolov8ncnn = new Yolov8Ncnn();
-    private int facing = 1;
+public class MainActivity extends FragmentActivity {
 
-    private Spinner spinnerModel;
-    private Spinner spinnerCPUGPU;
-    private int current_model = 0;
-    private int current_cpugpu = 0;
+    private LinearLayout[] navItems;
+    private Fragment homeFragment, imageFragment, settingFragment;
+    private Fragment currentFragment;
 
-    private SurfaceView cameraView;
-
-    /** Called when the activity is first created. */
     @Override
-    public void onCreate(Bundle savedInstanceState)
-    {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
 
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        // 初始化导航项
+        navItems = new LinearLayout[]{
+                findViewById(R.id.nav_home),
+                findViewById(R.id.nav_data),
+                findViewById(R.id.nav_setting)
+        };
 
-        cameraView = (SurfaceView) findViewById(R.id.cameraview);
+        // 创建Fragment实例
+        homeFragment = new HomeFragment();
+        imageFragment = new ImageFragment();
+        settingFragment = new SettingFragment();
 
-        cameraView.getHolder().setFormat(PixelFormat.RGBA_8888);
-        cameraView.getHolder().addCallback(this);
+        // 设置初始选中项
+        setSelectedTab(0);
 
-        Button buttonSwitchCamera = (Button) findViewById(R.id.buttonSwitchCamera);
-        buttonSwitchCamera.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View arg0) {
-                // 0 是后置相机 1 是前置相机
-                int new_facing = 1 - facing;
+        // 默认显示首页
+        switchFragment(homeFragment);
 
-                yolov8ncnn.closeCamera();
-
-                yolov8ncnn.openCamera(new_facing);
-
-                facing = new_facing;
-            }
-        });
-
-        spinnerModel = (Spinner) findViewById(R.id.spinnerModel);
-        spinnerModel.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> arg0, View arg1, int position, long id)
-            {
-                if (position != current_model)
-                {
-                    current_model = position;
-                    reload();
+        // 设置导航项点击监听
+        for (int i = 0; i < navItems.length; i++) {
+            final int position = i;
+            navItems[i].setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    setSelectedTab(position);
+                    switchToFragment(position);
                 }
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> arg0)
-            {
-            }
-        });
-
-        spinnerCPUGPU = (Spinner) findViewById(R.id.spinnerCPUGPU);
-        spinnerCPUGPU.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> arg0, View arg1, int position, long id)
-            {
-                if (position != current_cpugpu)
-                {
-                    current_cpugpu = position;
-                    reload();
-                }
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> arg0)
-            {
-            }
-        });
-
-        reload();
-    }
-
-    private void reload()
-    {
-        boolean ret_init = yolov8ncnn.loadModel(getAssets(), current_model, current_cpugpu);
-        if (!ret_init)
-        {
-            Log.e("MainActivity", "yolov8ncnn loadModel failed");
+            });
         }
     }
 
-    @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height)
-    {
-        yolov8ncnn.setOutputWindow(holder.getSurface());
+    private void setSelectedTab(int position) {
+        // 重置所有导航项状态
+        for (int i = 0; i < navItems.length; i++) {
+            navItems[i].setSelected(i == position);
+        }
     }
 
-    @Override
-    public void surfaceCreated(SurfaceHolder holder)
-    {
+    private void switchToFragment(int position) {
+        switch (position) {
+            case 0:
+                switchFragment(homeFragment);
+                break;
+            case 1:
+                switchFragment(imageFragment);
+                break;
+            case 2:
+                switchFragment(settingFragment);
+                break;
+        }
     }
 
-    @Override
-    public void surfaceDestroyed(SurfaceHolder holder)
-    {
-    }
+    private void switchFragment(Fragment fragment) {
+        if (fragment == currentFragment) return;
 
-    @Override
-    public void onResume()
-    {
-        super.onResume();
+        FragmentManager fragmentManager = getSupportFragmentManager();
+        FragmentTransaction transaction = fragmentManager.beginTransaction();
 
-        if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_DENIED)
-        {
-            ActivityCompat.requestPermissions(this, new String[] {Manifest.permission.CAMERA}, REQUEST_CAMERA);
+        // 隐藏当前Fragment
+        if (currentFragment != null) {
+            transaction.hide(currentFragment);
         }
 
-        yolov8ncnn.openCamera(facing);
-    }
+        // 如果Fragment已添加则显示，否则添加
+        if (fragment.isAdded()) {
+            transaction.show(fragment);
+        } else {
+            transaction.add(R.id.fragment_container, fragment);
+        }
 
-    @Override
-    public void onPause()
-    {
-        super.onPause();
-
-        yolov8ncnn.closeCamera();
+        transaction.commit();
+        currentFragment = fragment;
     }
 }

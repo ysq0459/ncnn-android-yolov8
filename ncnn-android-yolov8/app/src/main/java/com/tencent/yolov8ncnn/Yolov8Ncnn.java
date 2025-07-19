@@ -14,8 +14,20 @@
 
 package com.tencent.yolov8ncnn;
 
+import android.content.ContentResolver;
+import android.content.ContentValues;
+import android.content.Context;
 import android.content.res.AssetManager;
+import android.graphics.Bitmap;
+import android.net.Uri;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.util.Log;
 import android.view.Surface;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
 
 public class Yolov8Ncnn
 {
@@ -23,6 +35,8 @@ public class Yolov8Ncnn
     public native boolean openCamera(int facing);
     public native boolean closeCamera();
     public native boolean setOutputWindow(Surface surface);
+    // 添加保存图像方法
+    public native boolean saveCurrentImage(String folderName, String fileName);
 
     static {
         System.loadLibrary("yolov8ncnn");

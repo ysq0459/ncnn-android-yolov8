@@ -22,6 +22,7 @@
 
 #include <string>
 #include <vector>
+#include <sys/stat.h>
 
 #include <platform.h>
 #include <benchmark.h>
@@ -32,6 +33,11 @@
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/imgcodecs/imgcodecs.hpp>
+
+
+#include <android/bitmap.h>
+#include <android/log.h>
 
 #if __ARM_NEON
 #include <arm_neon.h>
@@ -112,6 +118,9 @@ static int draw_fps(cv::Mat& rgb)
 
 static Yolo* g_yolo = 0;
 static ncnn::Mutex lock;
+static cv::Mat g_latest_frame;
+static std::vector<cv::Mat> g_latest_seg_frame_list;
+static ncnn::Mutex g_frame_lock;
 
 class MyNdkCamera : public NdkCameraWindow
 {
@@ -129,7 +138,6 @@ void MyNdkCamera::on_image_render(cv::Mat& rgb) const
         {
             std::vector<Object> objects;
             g_yolo->detect(rgb, objects);
-            g_yolo->draw(rgb, objects);
             std::vector<cv::Mat> cut_imgs;
             g_yolo->DetectResultCut(rgb, objects, cut_imgs);
             for (size_t i = 0; i < cut_imgs.size(); ++i) {
@@ -138,6 +146,9 @@ void MyNdkCamera::on_image_render(cv::Mat& rgb) const
                 // 绘制分割结果到源图像上
                 g_yolo->draw_segment(cut_imgs[i], rgb, seg_objs, objects[i]);
             }
+
+            g_yolo->draw(rgb, objects);
+            g_latest_seg_frame_list = cut_imgs;
         }
         else
         {
@@ -146,6 +157,12 @@ void MyNdkCamera::on_image_render(cv::Mat& rgb) const
     }
 
     draw_fps(rgb);
+
+    // 加锁更新最新帧
+    {
+        ncnn::MutexLockGuard lock(g_frame_lock);
+        g_latest_frame = rgb.clone(); // 保存处理后的帧
+    }
 }
 
 static MyNdkCamera* g_camera = 0;
@@ -269,6 +286,53 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_Yolov8Ncnn_setOutputWindo
     __android_log_print(ANDROID_LOG_DEBUG, "ncnn", "setOutputWindow %p", win);
 
     g_camera->set_window(win);
+
+    return JNI_TRUE;
+}
+
+// 实现保存图像的 JNI 方法
+JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_Yolov8Ncnn_saveCurrentImage(
+        JNIEnv* env, jobject thiz, jstring jfolder, jstring jfilename) {
+
+    // 获取 Java 传入的参数
+    const char* folder = env->GetStringUTFChars(jfolder, nullptr);
+    const char* filename = env->GetStringUTFChars(jfilename, nullptr);
+
+    // 创建完整路径
+    std::string base_path = "/sdcard/";
+    std::string dir_path = base_path + folder;
+    std::string file_path = dir_path + "/" + filename;
+
+    // 创建目录（如果不存在）
+    mkdir(dir_path.c_str(), 0777); // 创建文件夹
+
+    // 加锁复制帧
+    cv::Mat frame_copy;
+    {
+        ncnn::MutexLockGuard lock(g_frame_lock);
+        if (g_latest_frame.empty()) {
+            __android_log_print(ANDROID_LOG_ERROR, "ncnn", "No frame available to save");
+            return JNI_FALSE;
+        }
+        frame_copy = g_latest_frame.clone();
+        cv::cvtColor(frame_copy, frame_copy, cv::COLOR_RGB2BGR);
+    }
+
+    // 保存图像
+    bool success = cv::imwrite(file_path, frame_copy);
+    for (size_t i = 0; i < g_latest_seg_frame_list.size(); ++i) {
+        cv::cvtColor(g_latest_seg_frame_list[i], g_latest_seg_frame_list[i], cv::COLOR_RGB2BGR);
+        cv::imwrite(dir_path + "/seg_" + std::to_string(i) + ".jpg", g_latest_seg_frame_list[i]);
+    }
+    if (success) {
+        __android_log_print(ANDROID_LOG_INFO, "ncnn", "Image saved: %s", file_path.c_str());
+    } else {
+        __android_log_print(ANDROID_LOG_ERROR, "ncnn", "Failed to save image: %s", file_path.c_str());
+    }
+
+    // 释放资源
+    env->ReleaseStringUTFChars(jfolder, folder);
+    env->ReleaseStringUTFChars(jfilename, filename);
 
     return JNI_TRUE;
 }
