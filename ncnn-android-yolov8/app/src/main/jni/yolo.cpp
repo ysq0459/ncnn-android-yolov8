@@ -611,7 +611,7 @@ int Yolo::segment(const cv::Mat& rgb, std::vector<Object>& objects, float prob_t
     return 0;
 }
 
-int Yolo::draw(cv::Mat& rgb, const std::vector<Object>& objects)
+int Yolo::draw(const cv::Mat& rgb, const std::vector<Object>& objects)
 {
     static const char* class_names[] = {
         "testtube"
@@ -660,7 +660,7 @@ int Yolo::draw(cv::Mat& rgb, const std::vector<Object>& objects)
     return 0;
 }
 
-int Yolo::draw_segment(const cv::Mat& cut_img, cv::Mat& rgb, const std::vector<Object>& objects, const Object& img_obj)
+int Yolo::draw_segment(cv::Mat& cut_img, cv::Mat& rgb, const std::vector<Object>& objects, const Object& img_obj)
 {
     static const char* class_names[] = {
         "solution"
@@ -670,7 +670,8 @@ int Yolo::draw_segment(const cv::Mat& cut_img, cv::Mat& rgb, const std::vector<O
     };
     cv::Mat image = rgb;
     int color_index = 0;
-
+    cv::putText(cut_img, std::to_string(objects.size()), cv::Point(cut_img.cols / 2, cut_img.rows / 2),
+                cv::FONT_HERSHEY_SIMPLEX, 5, cv::Scalar(0, 0, 255));
     cv::circle(rgb, cv::Point(img_obj.rect.x + img_obj.rect.width / 2, img_obj.rect.y + img_obj.rect.height / 2), 10, cv::Scalar(0, 0, 255), 2);
 
     for (size_t i = 0; i < objects.size(); i++)

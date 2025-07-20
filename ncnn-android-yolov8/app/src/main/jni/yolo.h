@@ -44,11 +44,11 @@ public:
 
     int detect(const cv::Mat& rgb, std::vector<Object>& objects, float prob_threshold = 0.4f, float nms_threshold = 0.5f);
 
-    int draw(cv::Mat& rgb, const std::vector<Object>& objects);
+    int draw(const cv::Mat& rgb, const std::vector<Object>& objects);
 
     int segment(const cv::Mat& rgb, std::vector<Object>& objects, float prob_threshold = 0.4f, float nms_threshold = 0.5f);
 
-    int draw_segment(const cv::Mat& cut_img, cv::Mat& rgb, const std::vector<Object>& objects, const Object& img_obj);
+    int draw_segment(cv::Mat& cut_img, cv::Mat& rgb, const std::vector<Object>& objects, const Object& img_obj);
 
     int DetectResultCut(const cv::Mat& rgb, const std::vector<Object>& objects, std::vector<cv::Mat>& cut_imgs);
 

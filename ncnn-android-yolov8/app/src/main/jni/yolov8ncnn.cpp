@@ -116,6 +116,60 @@ static int draw_fps(cv::Mat& rgb)
     return 0;
 }
 
+// 辅助函数：将Bitmap转换为cv::Mat
+static cv::Mat bitmap_to_cv_mat(JNIEnv* env, jobject bitmap) {
+    AndroidBitmapInfo info;
+    void* pixels = nullptr;
+
+    // 获取Bitmap信息
+    AndroidBitmap_getInfo(env, bitmap, &info);
+    AndroidBitmap_lockPixels(env, bitmap, &pixels);
+
+    cv::Mat mat;
+    if (info.format == ANDROID_BITMAP_FORMAT_RGBA_8888) {
+        mat = cv::Mat(info.height, info.width, CV_8UC4, pixels);
+        cv::cvtColor(mat, mat, cv::COLOR_RGBA2RGB);
+    } else if (info.format == ANDROID_BITMAP_FORMAT_RGB_565) {
+        mat = cv::Mat(info.height, info.width, CV_8UC2, pixels);
+        cv::cvtColor(mat, mat, cv::COLOR_BGR5652RGB);
+    }
+
+    AndroidBitmap_unlockPixels(env, bitmap);
+    return mat.clone(); // 返回深拷贝
+}
+
+// 辅助函数：将cv::Mat转换为Bitmap
+static jobject cv_mat_to_bitmap(JNIEnv* env, cv::Mat mat) {
+    // 确保Mat是RGB格式
+    if (mat.channels() == 1) {
+        cv::cvtColor(mat, mat, cv::COLOR_GRAY2RGB);
+    } else if (mat.channels() == 4) {
+        cv::cvtColor(mat, mat, cv::COLOR_RGBA2RGB);
+    }
+
+    // 创建Bitmap对象
+    jclass bitmapClass = env->FindClass("android/graphics/Bitmap");
+    jmethodID createBitmapMethod = env->GetStaticMethodID(bitmapClass, "createBitmap",
+                                                          "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;");
+    jclass configClass = env->FindClass("android/graphics/Bitmap$Config");
+    jmethodID valueOfMethod = env->GetStaticMethodID(configClass, "valueOf",
+                                                     "(Ljava/lang/String;)Landroid/graphics/Bitmap$Config;");
+    jobject configObj = env->CallStaticObjectMethod(configClass, valueOfMethod,
+                                                    env->NewStringUTF("ARGB_8888"));
+
+    jobject bitmap = env->CallStaticObjectMethod(bitmapClass, createBitmapMethod,
+                                                 mat.cols, mat.rows, configObj);
+
+    // 将Mat数据写入Bitmap
+    void* pixels = nullptr;
+    AndroidBitmap_lockPixels(env, bitmap, &pixels);
+    cv::Mat dstMat(mat.rows, mat.cols, CV_8UC4, pixels);
+    cv::cvtColor(mat, dstMat, cv::COLOR_RGB2RGBA);
+    AndroidBitmap_unlockPixels(env, bitmap);
+
+    return bitmap;
+}
+
 static Yolo* g_yolo = 0;
 static ncnn::Mutex lock;
 static cv::Mat g_latest_frame;
@@ -288,6 +342,48 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_yolov8ncnn_Yolov8Ncnn_setOutputWindo
     g_camera->set_window(win);
 
     return JNI_TRUE;
+}
+
+// 新增接口：处理静态图片
+JNIEXPORT jobject JNICALL Java_com_tencent_yolov8ncnn_Yolov8Ncnn_processImage(
+        JNIEnv* env, jobject thiz, jobject bitmap) {
+
+    // 将Bitmap转换为OpenCV Mat
+    cv::Mat rgb = bitmap_to_cv_mat(env, bitmap);
+    if (rgb.empty()) {
+        __android_log_print(ANDROID_LOG_ERROR, "ncnn", "Failed to convert Bitmap to Mat");
+        return nullptr;
+    }
+
+    // 处理图像
+    ncnn::MutexLockGuard g(lock);
+    if (g_yolo) {
+        std::vector<Object> objects;
+        g_yolo->detect(rgb, objects);
+
+        std::vector<cv::Mat> cut_imgs;
+        g_yolo->DetectResultCut(rgb, objects, cut_imgs);
+
+        for (size_t i = 0; i < cut_imgs.size(); ++i) {
+            std::vector<Object> seg_objs;
+            g_yolo->segment(cut_imgs[i], seg_objs);
+            g_yolo->draw_segment(cut_imgs[i], rgb, seg_objs, objects[i]);
+            g_latest_seg_frame_list = cut_imgs;
+        }
+
+        g_yolo->draw(rgb, objects);
+    } else {
+        draw_unsupported(rgb);
+    }
+
+    // 加锁更新最新帧
+    {
+        ncnn::MutexLockGuard lock(g_frame_lock);
+        g_latest_frame = rgb.clone(); // 保存处理后的帧
+    }
+
+    // 将处理后的Mat转换回Bitmap
+    return cv_mat_to_bitmap(env, rgb);
 }
 
 // 实现保存图像的 JNI 方法

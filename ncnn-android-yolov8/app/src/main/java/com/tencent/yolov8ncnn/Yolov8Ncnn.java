@@ -35,6 +35,8 @@ public class Yolov8Ncnn
     public native boolean openCamera(int facing);
     public native boolean closeCamera();
     public native boolean setOutputWindow(Surface surface);
+    // 新增接口：处理静态图片
+    public native Bitmap processImage(Bitmap bitmap);
     // 添加保存图像方法
     public native boolean saveCurrentImage(String folderName, String fileName);
 
