@@ -9,6 +9,7 @@ import android.widget.CompoundButton;
 import android.widget.CursorAdapter;
 import android.widget.TextView;
 
+import java.io.File;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -28,24 +29,35 @@ public class DataAdapter extends CursorAdapter {
     @Override
     public void bindView(View view, Context context, Cursor cursor) {
         TextView textLabel = view.findViewById(R.id.textLabel);
-        TextView textValue = view.findViewById(R.id.textValue);
+        TextView textValue = view.findViewById(R.id.textValue); // 现在用于显示检测结果
+        TextView textImage = view.findViewById(R.id.textImage); // 新增的图片信息视图
         CheckBox checkBox = view.findViewById(R.id.checkBox);
 
-        // 将id提取为final变量
+        // 获取数据
         final long id = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.COL_ID));
-        String label = cursor.getString(cursor.getColumnIndexOrThrow(
-                DatabaseHelper.COL_LABEL));
-        double value = cursor.getDouble(cursor.getColumnIndexOrThrow(
-                DatabaseHelper.COL_VALUE));
+        String label = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COL_LABEL));
+        String imagePath = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COL_IMAGE_PATH));
+        String detectionResult = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.COL_DETECTION_RESULT));
 
+        // 设置视图内容
         textLabel.setText(label);
-        textValue.setText(String.format("Value: %.2f", value));
+
+        // 显示检测结果
+        textValue.setText("Detection: " + detectionResult);
+
+        // 显示图片文件名（如果有）
+        if (imagePath != null && !imagePath.isEmpty()) {
+            File imageFile = new File(imagePath);
+            textImage.setText("Image: " + imageFile.getName());
+            textImage.setVisibility(View.VISIBLE);
+        } else {
+            textImage.setVisibility(View.GONE);
+        }
 
         // 多选模式处理
         checkBox.setChecked(selectedIds.contains(id));
         checkBox.setVisibility(multiSelectMode ? View.VISIBLE : View.GONE);
 
-        // 使用final变量id替代局部变量
         checkBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {

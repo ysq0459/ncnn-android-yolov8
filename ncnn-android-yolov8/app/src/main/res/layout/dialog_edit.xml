@@ -6,7 +6,7 @@
     android:padding="16dp">
 
     <TextView
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Label:"
         android:textSize="16sp"/>
@@ -15,20 +15,34 @@
         android:id="@+id/editLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:layout_marginBottom="16dp"
-        android:inputType="text"/>
+        android:inputType="text"
+        android:hint="Enter label"/>
 
+    <!-- 显示图片信息 -->
     <TextView
-        android:layout_width="wrap_content"
+        android:id="@+id/txtImagePath"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Value:"
-        android:textSize="16sp"/>
+        android:text="Image: "
+        android:textSize="14sp"
+        android:layout_marginTop="8dp"/>
 
+    <!-- 显示检测结果 -->
+    <TextView
+        android:id="@+id/txtDetectionResult"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Detection: "
+        android:textSize="14sp"
+        android:layout_marginTop="8dp"/>
+
+    <!-- 保留但隐藏的value字段（可选） -->
     <EditText
         android:id="@+id/editValue"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:inputType="numberDecimal"/>
+        android:inputType="numberDecimal"
+        android:hint="Value"
+        android:visibility="gone"/>
+
 </LinearLayout>
