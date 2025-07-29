@@ -11,13 +11,18 @@
 // under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
-
+#include <android/log.h>
 #include "yolo.h"
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
 #include "cpu.h"
+
+#define LOG_TAG "NativeLog"
+#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 static float fast_exp(float x)
 {
@@ -145,7 +150,6 @@ static void generate_proposals(std::vector<GridAndStride> grid_strides, int num_
     for (int i = 0; i < num_points; i++)
     {
         const float* scores = pred.row(i) + 4 * reg_max_1;
-
         // find label with max score
         int label = -1;
         float score = -FLT_MAX;
@@ -302,7 +306,7 @@ int Yolo::detect(const cv::Mat& rgb, std::vector<Object>& objects, float prob_th
         w = w * scale;
     }
 
-    ncnn::Mat in = ncnn::Mat::from_pixels_resize(rgb.data, ncnn::Mat::PIXEL_RGB2BGR, width, height, w, h);
+    ncnn::Mat in = ncnn::Mat::from_pixels_resize(rgb.data, ncnn::Mat::PIXEL_RGB, width, height, w, h);
 
     // pad to target_size rectangle
     int wpad = (w + 31) / 32 * 32 - w;
@@ -534,7 +538,7 @@ int Yolo::segment(const cv::Mat& rgb, std::vector<Object>& objects, float prob_t
         w = w * scale;
     }
 
-    ncnn::Mat in = ncnn::Mat::from_pixels_resize(rgb.data, ncnn::Mat::PIXEL_RGB2BGR, width, height, w, h);
+    ncnn::Mat in = ncnn::Mat::from_pixels_resize(rgb.data, ncnn::Mat::PIXEL_RGB, width, height, w, h);
 
     // pad to target_size rectangle
     int wpad = (w + 31) / 32 * 32 - w;
@@ -668,31 +672,16 @@ int Yolo::draw_segment(cv::Mat& cut_img, cv::Mat& rgb, const std::vector<Object>
     static const unsigned char colors[1][3] = {
             {56,  0,   255},
     };
-    cv::Mat image = rgb;
+
     int color_index = 0;
-    cv::putText(cut_img, std::to_string(objects.size()), cv::Point(cut_img.cols / 2, cut_img.rows / 2),
-                cv::FONT_HERSHEY_SIMPLEX, 5, cv::Scalar(0, 0, 255));
-    cv::circle(rgb, cv::Point(img_obj.rect.x + img_obj.rect.width / 2, img_obj.rect.y + img_obj.rect.height / 2), 10, cv::Scalar(0, 0, 255), 2);
 
     for (size_t i = 0; i < objects.size(); i++)
     {
-        cv::circle(rgb, cv::Point(objects[i].rect.x + objects[i].rect.width / 2, objects[i].rect.y + objects[i].rect.height / 2), 10, cv::Scalar(255, 0, 0), 2);
         const Object& obj = objects[i];
         const unsigned char* color = colors[0];
         color_index++;
 
         cv::Scalar cc(color[0], color[1], color[2]);
-
-        fprintf(stderr, "%d = %.5f at %.2f %.2f %.2f x %.2f\n", obj.label, obj.prob,
-                obj.rect.x, obj.rect.y, obj.rect.width, obj.rect.height);
-
-        // cv::rectangle(image, obj.rect, cc, 2);
-
-        // char text[256];
-        // sprintf(text, "%s %.1f%%", class_names[obj.label], obj.prob * 100);
-
-        // int baseLine = 0;
-        // cv::Size label_size = cv::getTextSize(text, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
 
         int img_x = img_obj.rect.x;
         int img_y = img_obj.rect.y;
@@ -701,23 +690,15 @@ int Yolo::draw_segment(cv::Mat& cut_img, cv::Mat& rgb, const std::vector<Object>
         // if (x + label_size.width > image.cols)
         //     x = image.cols - label_size.width;
 
-        cv::rectangle(image, cv::Rect(cv::Point(img_x, img_y), cv::Size(cut_img.cols, cut_img.rows)),
-                      cc, 2);
-
-        // cv::putText(image, text, cv::Point(x, y + label_size.height),
-        //             cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 0));
-
         for (int y = img_y; y < img_y + cut_img.rows; y++) {
-            uchar* image_ptr = image.ptr(y);
-            const float* mask_ptr = obj.mask.ptr<float>(y);
             for (int x = img_x; x < img_x + cut_img.cols; x++) {
-                if (mask_ptr[x] >= 0.5)
+                const float* mask_ptr = obj.mask.ptr<float>(y - img_y);
+                if (mask_ptr[x - img_x] >= 0.5)
                 {
-                    image_ptr[0] = cv::saturate_cast<uchar>(image_ptr[0] * 0.5 + color[2] * 0.5);
-                    image_ptr[1] = cv::saturate_cast<uchar>(image_ptr[1] * 0.5 + color[1] * 0.5);
-                    image_ptr[2] = cv::saturate_cast<uchar>(image_ptr[2] * 0.5 + color[0] * 0.5);
+                    rgb.ptr<cv::Vec3b>(y)[x][0] = cv::saturate_cast<uchar>(rgb.ptr<cv::Vec3b>(y)[x][0] * 0.5 + color[2] * 0.5);
+                    rgb.ptr<cv::Vec3b>(y)[x][1] = cv::saturate_cast<uchar>(rgb.ptr<cv::Vec3b>(y)[x][1] * 0.5 + color[1] * 0.5);
+                    rgb.ptr<cv::Vec3b>(y)[x][2] = cv::saturate_cast<uchar>(rgb.ptr<cv::Vec3b>(y)[x][2] * 0.5 + color[0] * 0.5);
                 }
-                image_ptr += 3;
             }
         }
     }
@@ -730,7 +711,7 @@ int Yolo::DetectResultCut(const cv::Mat& rgb, const std::vector<Object>& objects
 
     for (size_t i = 0; i < objects.size(); ++i) {
         cv::Rect rect = objects[i].rect;
-        cv::Mat cut_img = image(rect);
+        cv::Mat cut_img = image(rect).clone();
         cut_imgs.push_back(cut_img);
     }
 

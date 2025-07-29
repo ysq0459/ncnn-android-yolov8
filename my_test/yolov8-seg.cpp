@@ -266,8 +266,6 @@ static void generate_proposals(std::vector<GridAndStride> grid_strides, const nc
     const int num_points = grid_strides.size();
     const int num_class = 1;
     const int reg_max_1 = 16;
-    std::cout << "num_points: " << num_points << std::endl;
-    std::cout << "pred: " << pred.w << " " << pred.h << " " << pred.c << std::endl;
 
     for (int i = 0; i < num_points; i++)
     {
@@ -279,6 +277,7 @@ static void generate_proposals(std::vector<GridAndStride> grid_strides, const nc
             for (int k = 0; k < num_class; k++)
             {
                 float confidence = scores[k];
+                std::cout << "confidence: " << confidence << std::endl;
                 if (confidence > score)
                 {
                     label = k;
@@ -408,7 +407,7 @@ static int detect_yolov8(std::string ncnn_bin_path, std::string ncnn_param_path,
         w = w * scale;
     }
 
-    ncnn::Mat in = ncnn::Mat::from_pixels_resize(bgr.data, ncnn::Mat::PIXEL_BGR2RGB, width, height, w, h);
+    ncnn::Mat in = ncnn::Mat::from_pixels_resize(bgr.data, ncnn::Mat::PIXEL_BGR, width, height, w, h);
 
     // pad to target_size rectangle
     int wpad = (w + 31) / 32 * 32 - w;
@@ -435,6 +434,7 @@ static int detect_yolov8(std::string ncnn_bin_path, std::string ncnn_param_path,
 
     std::vector<Object> proposals;
     std::vector<Object> objects8;
+    std::cout << "grid_strides size: " << grid_strides.size() << std::endl;
     generate_proposals(grid_strides, out, prob_threshold, objects8);
 
     proposals.insert(proposals.end(), objects8.begin(), objects8.end());

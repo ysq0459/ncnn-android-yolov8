@@ -75,6 +75,8 @@
         "__split_buffer": "cpp",
         "filesystem": "cpp",
         "queue": "cpp",
-        "stack": "cpp"
+        "stack": "cpp",
+        "__hash_table": "cpp",
+        "__tree": "cpp"
     }
 }

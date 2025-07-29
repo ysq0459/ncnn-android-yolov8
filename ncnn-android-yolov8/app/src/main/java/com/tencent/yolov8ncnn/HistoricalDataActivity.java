@@ -379,6 +379,7 @@ public class HistoricalDataActivity extends Activity {
             storageDir.mkdirs();
         }
 
+        yolov8ncnn.saveCurrentImage(folderName, fileName);
         // 创建文件
         File imageFile = new File(storageDir, fileName);
 
